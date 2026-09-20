@@ -6,6 +6,8 @@ dotenv.config();
 import {connectDb} from "./db/db.js";
 import { createWebsocketServer } from "./lib/websocketServer.js";
 import { processEvent } from "./services/eventprocessor.js";
+import { validateEvent } from "./events/eventValidator.js";
+import { ingestEvent } from "./ingestion/eventIngestion.js";
 
 const app = express();
 app.use(express.json());
@@ -17,10 +19,10 @@ createWebsocketServer(server);
 
 app.post("/event", async(req, res) => {
     try{
-      await processEvent(req.body);
-      res.status(201).json({
-        message: "event processed"
-      })
+      const event = ingestEvent(req.body);
+
+      await processEvent(event);
+      res.status(202).json({message: "event accepted"});
     }
     catch(error){
       console.error("error processing event: ", error);
