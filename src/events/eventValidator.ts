@@ -14,10 +14,10 @@ export const validateEvent = (event: unknown): event is NotificationEvent => {
     if(typeof value.source !== "string"){
         return false;
     }
-    if(typeof value.senderId !== undefined && typeof value.senderId !== "string"){
+    if(typeof value.senderId !== "undefined" && typeof value.senderId !== "string"){
         return false;
     }
-    if(typeof value.recipientId !== undefined && typeof value.recipientId !== "string"){
+    if(typeof value.recipientId !== "undefined" && typeof value.recipientId !== "string"){
         return false;
     }
     if(!value.data || typeof value.data !== "object"){
