@@ -1,6 +1,12 @@
 node_modules
 dist
 .env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
 
 # temporary files for testing
 test.html

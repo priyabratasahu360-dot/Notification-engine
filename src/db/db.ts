@@ -7,7 +7,7 @@ let isConnected = false;
 
 export const connectDb = async () => {
     if (!url) {
-        console.warn("⚠️ MONGO_URI is not set in .env. MongoDB features will run in offline mode.");
+        console.warn("MONGO_URI is not set in .env. MongoDB features will run in offline mode.");
         return;
     }
     try {
@@ -15,10 +15,10 @@ export const connectDb = async () => {
             serverSelectionTimeoutMS: 4000,
         });
         isConnected = true;
-        console.log("✅ MongoDB connected successfully");
+        console.log("MongoDB connected successfully");
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
-        console.warn(`⚠️ Warning: MongoDB connection error (${msg}). Engine will proceed with in-memory/real-time dispatch.`);
+        console.warn(`Warning: MongoDB connection error (${msg}). Engine will proceed with in-memory/real-time dispatch.`);
     }
 };
 

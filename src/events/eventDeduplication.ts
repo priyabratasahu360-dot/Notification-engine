@@ -5,14 +5,18 @@ import type { NotificationEvent } from "../types/event.js";
 // In-memory fallback set for deduplication when DB is unavailable or offline
 const memoryEventCache = new Set<string>();
 
+const getEventKey = (source: string, eventId: string): string => `${source}:${eventId}`;
+
 export const registerEvent = async (event: NotificationEvent): Promise<boolean> => {
+    const key = getEventKey(event.source, event.eventId);
+
     if (!isDbConnected()) {
-        if (memoryEventCache.has(event.eventId)) {
+        if (memoryEventCache.has(key)) {
             return false;
         }
-        memoryEventCache.add(event.eventId);
+        memoryEventCache.add(key);
         // Clean cache after 1 hour to prevent unbounded growth
-        setTimeout(() => memoryEventCache.delete(event.eventId), 3600000);
+        setTimeout(() => memoryEventCache.delete(key), 3600000);
         return true;
     }
 
@@ -30,10 +34,27 @@ export const registerEvent = async (event: NotificationEvent): Promise<boolean> 
             return false;
         }
         // If DB operation fails unexpectedly, fall back to memory check
-        if (memoryEventCache.has(event.eventId)) {
+        if (memoryEventCache.has(key)) {
             return false;
         }
-        memoryEventCache.add(event.eventId);
+        memoryEventCache.add(key);
         return true;
+    }
+};
+
+/**
+ * Rollback/unregister event if downstream processing crashes or fails,
+ * ensuring producer retries are not permanently dropped.
+ */
+export const unregisterEvent = async (source: string, eventId: string): Promise<void> => {
+    const key = getEventKey(source, eventId);
+    memoryEventCache.delete(key);
+
+    if (isDbConnected()) {
+        try {
+            await Event.deleteOne({ source, eventId });
+        } catch (err) {
+            console.warn("Could not unregister failed event from DB:", err);
+        }
     }
 };

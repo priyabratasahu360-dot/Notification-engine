@@ -50,7 +50,7 @@ export const updateUserPreference = async (
     const updated = await UserPreference.findOneAndUpdate(
         { userId },
         { $set: updates },
-        { new: true, upsert: true }
+        { returnDocument: "after", upsert: true }
     );
 
     return {
