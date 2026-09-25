@@ -87,7 +87,7 @@ The engine will start on `http://localhost:5000`:
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### 1. Ingest Event
 **`POST /event`**

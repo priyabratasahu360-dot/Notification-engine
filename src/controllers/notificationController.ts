@@ -23,7 +23,6 @@ export const getNotifications = async (req: Request, res: Response) => {
             recipientId: userId,
             read: false,
         });
-
         res.json({
             userId,
             unreadCount,

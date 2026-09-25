@@ -24,7 +24,7 @@ app.use(express.json());
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-service-key");
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 const rootDir = path.resolve(__dirname, "..");
 app.use(express.static(rootDir));
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const server = createServer(app);
 
 // Initialize WebSocket server
@@ -52,11 +52,18 @@ app.use("/api/preferences", preferenceRoutes);
 
 // Core Event Ingestion Endpoint
 app.post("/event", async (req, res) => {
+    console.log(`[POST /event] Received request from ${req.ip} | Headers:`, {
+        "content-type": req.headers["content-type"],
+        "x-service-key": req.headers["x-service-key"] ? "PRESENT" : "MISSING",
+    });
+    console.log(`[POST /event] Payload body:`, JSON.stringify(req.body));
+
     // 0. Service-to-Service Authentication
     const configuredServiceKey = process.env.INTERNAL_SERVICE_KEY;
     if (configuredServiceKey) {
         const incomingKey = req.headers["x-service-key"];
         if (!incomingKey || incomingKey !== configuredServiceKey) {
+            console.warn("[POST /event] Rejected: x-service-key mismatch");
             return res.status(401).json({
                 status: "error",
                 message: "Unauthorized: Invalid or missing x-service-key header",
@@ -68,13 +75,15 @@ app.post("/event", async (req, res) => {
     let registered = false;
 
     try {
-        // 1. Ingest & Validate event schema
+        console.log("[POST /event] Step 1: Validating schema...");
         const event = ingestEvent(req.body);
         parsedEvent = event;
+        console.log(`[POST /event] Step 1 passed: eventId=${event.eventId}, type=${event.type}, recipientId=${event.recipientId}`);
 
         // 2. Deduplicate event (prevents reprocessing duplicate events based on source + eventId)
         let isNewEvent = true;
         try {
+            console.log("[POST /event] Step 2: Checking deduplication in DB...");
             isNewEvent = await registerEvent(event);
             if (isNewEvent) {
                 registered = true;
@@ -84,6 +93,7 @@ app.post("/event", async (req, res) => {
         }
 
         if (!isNewEvent) {
+            console.log(`[POST /event] Duplicate event ignored: ${event.eventId}`);
             return res.status(200).json({
                 status: "ignored",
                 message: "duplicate event ignored",
@@ -92,9 +102,11 @@ app.post("/event", async (req, res) => {
         }
 
         // 3. Process Event: Handler mapping -> Decision Engine -> Multi-Channel Dispatch
+        console.log("[POST /event] Step 3: Processing event through handlers and decision engine...");
         const result = await processEvent(event);
 
         if (!result.success) {
+            console.log(`[POST /event] Event filtered: ${result.reason}`);
             return res.status(200).json({
                 status: "filtered",
                 message: result.reason || "Event processed but no notification was dispatched",
@@ -102,7 +114,7 @@ app.post("/event", async (req, res) => {
             });
         }
 
-        console.log(`Event ${event.eventId} successfully delivered via:`, result.dispatch?.deliveredChannels);
+        console.log(`[POST /event] Event ${event.eventId} successfully delivered via:`, result.dispatch?.deliveredChannels);
 
         return res.status(202).json({
             status: "accepted",
