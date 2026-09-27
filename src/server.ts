@@ -1,8 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import { createServer } from "http";
-import path from "path";
-import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -13,9 +11,6 @@ import { ingestEvent } from "./events/eventIngestion.js";
 import { registerEvent, unregisterEvent } from "./events/eventDeduplication.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -30,10 +25,6 @@ app.use((req, res, next) => {
     }
     next();
 });
-
-// Serve test UI directly from root directory
-const rootDir = path.resolve(__dirname, "..");
-app.use(express.static(rootDir));
 
 const PORT = process.env.PORT || 5001;
 const server = createServer(app);
@@ -142,6 +133,7 @@ app.post("/event", async (req, res) => {
     }
 });
 
+// starting server
 async function startServer() {
     await connectDb();
 

@@ -41,7 +41,7 @@ graph TD;
    - Filters notifications prior to delivery based on recipient settings.
 
 4. **Multi-Channel Real-time Dispatch**:
-   - **In-App (WebSocket)**: Real-time push directly to connected browser/mobile sessions (`ws://localhost:5000?userId=<userId>`).
+   - **In-App (WebSocket)**: Real-time push directly to connected browser/mobile sessions (`ws://localhost:5001?userId=<userId>`).
    - **Database Persistence**: Stores all notifications in MongoDB with unread/read state, timestamp, and metadata.
    - **Email Dispatcher**: Pluggable channel for email / external service notifications.
 
@@ -72,7 +72,7 @@ npm install
 ### 2. Environment Configuration
 Ensure `.env` contains your MongoDB URI and desired port:
 ```env
-PORT=5000
+PORT=5001
 MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/notification_engine
 ```
 
@@ -81,9 +81,8 @@ MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/notification_e
 npm run dev
 ```
 
-The engine will start on `http://localhost:5000`:
-- **WebSocket server**: `ws://localhost:5000?userId=<userId>`
-- **Interactive UI Dashboard**: `http://localhost:5000/test.html`
+The engine will start on `http://localhost:5001`:
+- **WebSocket server**: `ws://localhost:5001?userId=<userId>`
 
 ---
 

@@ -66,3 +66,25 @@ export const noteCollaboratorAddedHandler: EventHandler = async (event) => {
 
     return intent;
 };
+
+export const noteCommentHandler: EventHandler = async(event) => {
+    const recipientId = event.recipientId || (event.data?.recipientId as string);
+
+    if(!recipientId) return null;
+    const commenteterName = event.senderId || (event.data?.senderName as string) || (event.data?.commenteterName as string) || "Anonymous";
+    const comment = (event.data?.comment as string);
+
+    const intent: NotificationIntent = {
+        eventId: event.eventId,
+        recipientId,
+        senderId: event.senderId,
+        type: "note.comment.created",
+        source: event.source,
+        title: `${commenteterName} commented on your note`,
+        message: comment,
+        channels: ["in_app"],
+        data: event.data
+    }
+
+    return intent;
+}
