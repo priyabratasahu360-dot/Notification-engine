@@ -13,8 +13,15 @@ export interface ProcessEventResult {
 }
 
 export const processEvent = async (event: NotificationEvent): Promise<ProcessEventResult> => {
-    // 1. Resolve Handler (specific or fallback to default)
+    // 1. Resolve Handler
     const handler = eventHandlers[event.type] || defaultHandler;
+
+    if (!handler) {
+        return {
+            success: false,
+            reason: `No handler registered for event type '${event.type}'`,
+        };
+    }
 
     const intent = await handler(event);
 

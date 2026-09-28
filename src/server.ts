@@ -113,7 +113,7 @@ app.post("/event", async (req, res) => {
             eventId: event.eventId,
             dispatch: result.dispatch,
         });
-    } catch (error: unknown) {
+    } catch (error: any) {
         // If registration succeeded but processing crashed, unregister so producer can retry safely
         if (registered && parsedEvent) {
             try {
@@ -125,9 +125,9 @@ app.post("/event", async (req, res) => {
         }
 
         console.error("Error processing event:", error);
-        const errMsg = error instanceof Error ? error.message : "failed to process event";
+        const errMsg = error?.message || "Failed to process event";
         return res.status(400).json({
-            status: "error",
+            error: "INVALID_EVENT",
             message: errMsg,
         });
     }
