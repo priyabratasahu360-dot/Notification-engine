@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { pushSubscriptionSchema, type IPushSubscription } from "./PushNotification.js";
 
 export interface IUserPreference extends Document {
   userId: string;
@@ -6,7 +7,9 @@ export interface IUserPreference extends Document {
   channels: {
     inApp: boolean;
     email: boolean;
+    push: boolean;
   };
+  pushSubscriptions:IPushSubscription[];
   mutedSources: string[];
   mutedTypes: string[];
   createdAt: Date;
@@ -34,6 +37,14 @@ const userPreferenceSchema = new Schema(
         type: Boolean,
         default: true,
       },
+      push: {
+        type: Boolean,
+        default: true
+      }
+    },
+    pushSubscriptions: {
+      type: [pushSubscriptionSchema],
+      default: [],
     },
     mutedSources: {
       type: [String],

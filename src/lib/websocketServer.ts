@@ -3,6 +3,23 @@ import type { Server } from "http";
 
 const clients = new Map<string, Set<WebSocket>>();
 
+export function isUserConnected(userId: string): boolean{
+    const userSockets = clients.get(userId);
+
+    if(!userSockets || userSockets.size === 0){
+        return false;
+    }
+
+    //check of connection
+    for(const socket of userSockets){
+        if(socket.readyState === WebSocket.OPEN){
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export function sendNotification(
     userId: string,
     notification: unknown
@@ -68,6 +85,10 @@ export function createWebsocketServer(server: Server){
                 }
             }
         });
+
+        socket.on("error", (error) => {
+            console.error(`Websocket error for user ${userId}:`, error);
+        })
     });
 
     return wss;

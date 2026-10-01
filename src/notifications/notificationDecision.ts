@@ -40,7 +40,7 @@ export const evaluateDecision = async (intent: NotificationIntent): Promise<Deci
     // 4. Resolve delivery channels based on requested and enabled channels
     const requestedChannels = intent.channels && intent.channels.length > 0 
         ? intent.channels 
-        : (["in_app", "email"] as NotificationChannel[]);
+        : (["in_app", "email", "push"] as NotificationChannel[]);
 
     const allowedChannels: NotificationChannel[] = [];
     if (pref.channels.inApp && requestedChannels.includes("in_app")) {
@@ -48,6 +48,9 @@ export const evaluateDecision = async (intent: NotificationIntent): Promise<Deci
     }
     if (pref.channels.email && requestedChannels.includes("email")) {
         allowedChannels.push("email");
+    }
+    if (pref.channels.push && requestedChannels.includes("push")) {
+        allowedChannels.push("push");
     }
 
     if (allowedChannels.length === 0) {

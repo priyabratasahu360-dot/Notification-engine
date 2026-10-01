@@ -1,12 +1,15 @@
 import { Notification } from "../models/Notification.js";
-import { sendNotification } from "../lib/websocketServer.js";
+import { sendNotification, isUserConnected } from "../lib/websocketServer.js";
 import type { NotificationIntent, NotificationChannel } from "./notificationsIntent.js";
+import { sendWebPush } from "../services/webPushService.js";
+import { UserPreference } from "../models/UserPreference.js";
 
 export interface DispatchResult {
     persistedId?: string | undefined;
     deliveredChannels: NotificationChannel[];
     inAppDelivered: boolean;
     emailDelivered: boolean;
+    pushDelivered: boolean;
 }
 
 export const dispatchNotification = async (
@@ -16,7 +19,7 @@ export const dispatchNotification = async (
     let persistedId: string | undefined = undefined;
     let createdAt = new Date().toISOString();
 
-    // 1. Persist notification to Database
+    // Persist notification to Database
     try {
         const doc: Record<string, unknown> = {
             eventId: intent.eventId,
@@ -59,8 +62,27 @@ export const dispatchNotification = async (
     const deliveredChannels: NotificationChannel[] = [];
     let inAppDelivered = false;
     let emailDelivered = false;
+    let pushDelivered = false;
 
-    // 2. Real-time In-App Dispatch via WebSocket
+    //recipient preference
+    const preference = await UserPreference.findOne({userId: intent.recipientId})
+
+    //no preference ? default model
+    const notificationsEnabled = preference?.notificationsEnabled ?? true;
+    if(!notificationsEnabled){
+        return{
+            persistedId,
+            deliveredChannels,
+            inAppDelivered,
+            emailDelivered,
+            pushDelivered
+        }
+    }
+
+    //checks for ws connection
+    const connected = isUserConnected(intent.recipientId);
+
+    //Real-time In-App Dispatch via WebSocket for connected users
     if (allowedChannels.includes("in_app")) {
         try {
             sendNotification(intent.recipientId, {
@@ -75,7 +97,27 @@ export const dispatchNotification = async (
         }
     }
 
-    // 3. Email Channel Dispatch (Pluggable Logger / Dispatcher)
+    //push notification only for disconnected users
+    if(allowedChannels.includes("push") && (preference?.channels.push ?? true) && !connected){
+        try{
+            await sendWebPush(intent.recipientId, {
+                _id: payload.id,
+                title: intent.title,
+                body: intent.message,
+                url: "/"
+            });
+
+            pushDelivered = true;
+            deliveredChannels.push("push");
+            console.log(`[Push Dispatch] sent to ${intent.recipientId}`);
+        }
+        catch(error: unknown){
+            console.error("Webpush notification failed: ", error);
+        }
+    }
+
+
+    //Email Channel Dispatch (Pluggable Logger / Dispatcher)
     if (allowedChannels.includes("email")) {
         console.log(`[Email Dispatch] Simulated email sent to user ${intent.recipientId}: Subject: "${intent.title}" | Body: "${intent.message}"`);
         emailDelivered = true;
@@ -87,5 +129,6 @@ export const dispatchNotification = async (
         deliveredChannels,
         inAppDelivered,
         emailDelivered,
+        pushDelivered
     };
 };

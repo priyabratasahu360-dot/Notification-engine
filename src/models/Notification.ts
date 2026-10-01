@@ -49,7 +49,7 @@ const notificationSchema = new Schema(
         },
         channel: {
             type: String,
-            enum: ["in_app", "email", "sms"],
+            enum: ["in_app", "email", "push"],
             default: "in_app",
         },
         data: {

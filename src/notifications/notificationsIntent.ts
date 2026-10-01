@@ -1,4 +1,4 @@
-export type NotificationChannel = "in_app" | "email" | "sms";
+export type NotificationChannel = "in_app" | "email" | "push";
 
 export type NotificationIntent = {
     eventId: string;

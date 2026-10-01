@@ -1,4 +1,4 @@
-import { UserPreference } from "../models/userPreferenceSchema.js";
+import { UserPreference } from "../models/UserPreference.js";
 import type { NotificationChannel } from "./notificationsIntent.js";
 
 export interface UserPreferencesDTO {
@@ -7,6 +7,7 @@ export interface UserPreferencesDTO {
     channels: {
         inApp: boolean;
         email: boolean;
+        push: boolean
     };
     mutedSources: string[];
     mutedTypes: string[];
@@ -22,6 +23,7 @@ export const getUserPreference = async (userId: string): Promise<UserPreferences
                 channels: {
                     inApp: preference.channels?.inApp ?? true,
                     email: preference.channels?.email ?? true,
+                    push: preference.channels?.push ?? true
                 },
                 mutedSources: preference.mutedSources || [],
                 mutedTypes: preference.mutedTypes || [],
@@ -37,6 +39,7 @@ export const getUserPreference = async (userId: string): Promise<UserPreferences
         channels: {
             inApp: true,
             email: true,
+            push: true
         },
         mutedSources: [],
         mutedTypes: [],
@@ -59,6 +62,7 @@ export const updateUserPreference = async (
         channels: {
             inApp: updated.channels?.inApp ?? true,
             email: updated.channels?.email ?? true,
+            push: updated.channels?.push ?? true
         },
         mutedSources: updated.mutedSources || [],
         mutedTypes: updated.mutedTypes || [],
