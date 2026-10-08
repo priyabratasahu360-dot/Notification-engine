@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const eventSchema = new mongoose.Schema(
   {
+    appId: {
+      type: String,
+      default: "default",
+      index: true,
+    },
+
     eventId: {
       type: String,
       required: true,
@@ -27,7 +33,7 @@ const eventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound unique index for multi-tenant / multi-service deduplication
-eventSchema.index({ source: 1, eventId: 1 }, { unique: true });
+// Compound unique index for multi-tenant deduplication
+eventSchema.index({ appId: 1, source: 1, eventId: 1 }, { unique: true });
 
-export const Event = mongoose.model("Event", eventSchema);
+export const Event = mongoose.model("Event", eventSchema);

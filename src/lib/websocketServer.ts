@@ -52,12 +52,13 @@ export function createWebsocketServer(server: Server) {
         server
     });
 
-    wss.on("connection", (socket, request) => {
+    wss.on("connection", async (socket, request) => {
         const url = new URL(
             request.url || "",
             `http://${request.headers.host}`
         );
 
+        const appId = url.searchParams.get("appId");
         const userId = url.searchParams.get("userId");
         const token = url.searchParams.get("token");
 
@@ -68,7 +69,24 @@ export function createWebsocketServer(server: Server) {
             return;
         }
 
-        const isValid = verifyUserToken(userId, token);
+        let secretKey = process.env.INTERNAL_SERVICE_KEY || "";
+        if (appId) {
+            const { getAppById } = await import("../services/appService.js");
+            const app = await getAppById(appId);
+            if (!app) {
+                console.warn(`[WebSocket] Rejected connection: Unknown appId=${appId}`);
+                socket.close(4401, "Invalid appId");
+                return;
+            }
+            secretKey = app.apiKey;
+        }
+
+        if (!secretKey) {
+            socket.close(4500, "Server configuration error");
+            return;
+        }
+
+        const isValid = verifyUserToken(userId, token, secretKey);
         if (!isValid) {
             console.warn(`[WebSocket] Rejected connection: Invalid token for userId=${userId}`);
             socket.close(4403, "Invalid user token");
@@ -80,7 +98,8 @@ export function createWebsocketServer(server: Server) {
             clients.set(userId, new Set<WebSocket>());
         }
         clients.get(userId)!.add(socket);
-        console.log(`User connected via WebSocket: ${userId} (active sockets: ${clients.get(userId)!.size})`);
+        console.log(`User connected via WebSocket: ${userId} [App: ${appId || "default"}] (active sockets: ${clients.get(userId)!.size})`);
+
 
 
         socket.on("close", () => {

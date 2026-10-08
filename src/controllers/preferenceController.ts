@@ -9,7 +9,8 @@ import {
 export const getPreferences = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const preferences = await getUserPreference(userId);
+        const appId = (req as any).appId || "default";
+        const preferences = await getUserPreference(userId, appId);
         res.json(preferences);
     } catch (error) {
         console.error("Error fetching preferences:", error);
@@ -22,13 +23,15 @@ export const getPreferences = async (req: Request, res: Response) => {
 export const setPreferences = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
+        const appId = (req as any).appId || "default";
         const updates = req.body;
 
-        const updated = await updateUserPreference(userId, updates);
+        const updated = await updateUserPreference(userId, updates, appId);
         res.json({
             message: "Preferences updated successfully",
             preferences: updated,
         });
+
     } catch (error) {
         console.error("Error updating preferences:", error);
         res.status(500).json({ error: "Failed to update user preferences" });

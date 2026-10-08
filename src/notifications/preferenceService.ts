@@ -13,9 +13,14 @@ export interface UserPreferencesDTO {
     mutedTypes: string[];
 }
 
-export const getUserPreference = async (userId: string): Promise<UserPreferencesDTO> => {
+export const getUserPreference = async (userId: string, appId: string = "default"): Promise<UserPreferencesDTO> => {
     try {
-        const preference = await UserPreference.findOne({ userId });
+        const query: Record<string, string> = { userId };
+        if (appId !== "default") {
+            query.appId = appId;
+        }
+
+        const preference = await UserPreference.findOne(query);
         if (preference) {
             return {
                 userId: preference.userId,
@@ -48,13 +53,20 @@ export const getUserPreference = async (userId: string): Promise<UserPreferences
 
 export const updateUserPreference = async (
     userId: string,
-    updates: Partial<Omit<UserPreferencesDTO, "userId">>
+    updates: Partial<Omit<UserPreferencesDTO, "userId">>,
+    appId: string = "default"
 ): Promise<UserPreferencesDTO> => {
+    const filter: Record<string, string> = { userId };
+    if (appId !== "default") {
+        filter.appId = appId;
+    }
+
     const updated = await UserPreference.findOneAndUpdate(
-        { userId },
-        { $set: updates },
+        filter,
+        { $set: updates, $setOnInsert: { appId } },
         { returnDocument: "after", upsert: true }
     );
+
 
     return {
         userId: updated.userId,

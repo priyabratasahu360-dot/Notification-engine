@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 import { pushSubscriptionSchema, type IPushSubscription } from "./PushNotification.js";
 
 export interface IUserPreference extends Document {
+  appId?: string;
   userId: string;
   notificationsEnabled: boolean;
   channels: {
@@ -18,12 +19,17 @@ export interface IUserPreference extends Document {
 
 const userPreferenceSchema = new Schema(
   {
+    appId: {
+      type: String,
+      default: "default",
+      index: true,
+    },
     userId: {
       type: String,
       required: true,
-      unique: true,
       index: true,
     },
+
     notificationsEnabled: {
       type: Boolean,
       default: true,
@@ -59,6 +65,9 @@ const userPreferenceSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Unique index per tenant app and user
+userPreferenceSchema.index({ appId: 1, userId: 1 }, { unique: true });
 
 export const UserPreference = mongoose.model<IUserPreference>(
   "UserPreference",

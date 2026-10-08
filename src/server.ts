@@ -11,15 +11,17 @@ import { ingestEvent } from "./events/eventIngestion.js";
 import { registerEvent, unregisterEvent } from "./events/eventDeduplication.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
+import appRoutes from "./routes/appRoutes.js";
+import { getAppByApiKey } from "./services/appService.js";
 
 const app = express();
 app.use(express.json());
 
-// Enable CORS for testing from browsers/external apps
+// Enable CORS for client applications (browsers / mobile frontends)
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-service-key, x-user-id, x-user-token");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-app-id, x-user-id, x-user-token");
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
@@ -39,29 +41,46 @@ app.get("/health", (req, res) => {
 });
 
 // REST API Routes
+app.use("/api/apps", appRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/preferences", preferenceRoutes);
 
 // Core Event Ingestion Endpoint
 app.post("/event", async (req, res) => {
+    // 0. Producer Authentication via API Key
+    const incomingKey = (req.headers["x-api-key"] || req.headers["x-service-key"]) as string | undefined;
+    const configuredServiceKey = process.env.INTERNAL_SERVICE_KEY;
+    let resolvedAppId = (req.headers["x-app-id"] as string) || "default";
+
     console.log(`[POST /event] Received request from ${req.ip} | Headers:`, {
         "content-type": req.headers["content-type"],
-        "x-service-key": req.headers["x-service-key"] ? "PRESENT" : "MISSING",
+        "x-api-key": incomingKey ? "PRESENT" : "MISSING",
+        "x-app-id": req.headers["x-app-id"] || "NONE",
     });
     console.log(`[POST /event] Payload body:`, JSON.stringify(req.body));
 
-    // 0. Service-to-Service Authentication
-    const configuredServiceKey = process.env.INTERNAL_SERVICE_KEY;
-    if (configuredServiceKey) {
-        const incomingKey = req.headers["x-service-key"];
-        if (!incomingKey || incomingKey !== configuredServiceKey) {
-            console.warn("[POST /event] Rejected: x-service-key mismatch");
-            return res.status(401).json({
-                status: "error",
-                message: "Unauthorized: Invalid or missing x-service-key header",
-            });
-        }
+    if (!incomingKey) {
+        return res.status(401).json({
+            status: "error",
+            message: "Unauthorized: Missing 'x-api-key' header",
+        });
     }
+
+    // Check registered apps in MongoDB
+    const registeredApp = await getAppByApiKey(incomingKey);
+    if (registeredApp) {
+        resolvedAppId = registeredApp.appId;
+    } else if (configuredServiceKey && incomingKey === configuredServiceKey) {
+        resolvedAppId = (req.headers["x-app-id"] as string) || "default";
+    } else {
+        console.warn("[POST /event] Rejected: Invalid x-api-key");
+        return res.status(401).json({
+            status: "error",
+            message: "Unauthorized: Invalid x-api-key header",
+        });
+    }
+
+
 
     let parsedEvent: ReturnType<typeof ingestEvent> | null = null;
     let registered = false;

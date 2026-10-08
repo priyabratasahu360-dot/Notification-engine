@@ -2,13 +2,18 @@ import type { Request, Response } from "express";
 import { Notification } from "../models/Notification.js";
 
 // GET /api/notifications?read=false&limit=50
-// Uses authenticated req.userId from middleware
+// Uses authenticated req.userId and req.appId from middleware
 export const getNotifications = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
+        const appId = (req as any).appId || "default";
         const { read, limit = "50" } = req.query;
 
         const query: Record<string, unknown> = { recipientId: userId };
+        if (appId !== "default") {
+            query.appId = appId;
+        }
+
         if (typeof read === "string") {
             query.read = read === "true";
         }
@@ -17,17 +22,21 @@ export const getNotifications = async (req: Request, res: Response) => {
             .sort({ createdAt: -1 })
             .limit(parseInt(limit as string, 10) || 50);
 
-        const unreadCount = await Notification.countDocuments({
-            recipientId: userId,
-            read: false,
-        });
+        const countQuery: Record<string, unknown> = { recipientId: userId, read: false };
+        if (appId !== "default") {
+            countQuery.appId = appId;
+        }
+
+        const unreadCount = await Notification.countDocuments(countQuery);
 
         res.json({
+            appId,
             userId,
             unreadCount,
             count: notifications.length,
             notifications,
         });
+
     } catch (error) {
         console.error("Error fetching notifications:", error);
         res.status(500).json({ error: "Failed to fetch notifications" });

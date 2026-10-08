@@ -81,10 +81,36 @@ The server will start on `http://localhost:5001`.
 
 ## 4. Integration Guide for Any Application
 
-Integrating your application requires just two steps:
+Integrating your application requires three simple steps:
 
-### Step A: Emitting Events from Your Backend
-When an action happens in your application, send a `POST /event` request from your backend:
+### Step 1: Register Your Application & Get Your API Key
+Any service (ChatApp, NotesApp, Store, etc.) registers once to receive their unique `appId` and `apiKey`:
+
+```bash
+POST http://localhost:5001/api/apps/register
+Content-Type: application/json
+
+{
+  "name": "ChatApp",
+  "description": "Team messaging and chat platform"
+}
+```
+
+**Response**:
+```json
+{
+  "message": "Application registered successfully! Keep your apiKey secure.",
+  "appId": "app_9f2b8401",
+  "name": "ChatApp",
+  "apiKey": "ne_live_4a89bc21e780d601fbc349281a9420b..."
+}
+```
+> 🔒 **Save your `apiKey` in your backend `.env`!** Never share this key with client/frontend code.
+
+---
+
+### Step 2: Emitting Events from Your Backend
+When an action happens in your application, send a `POST /event` request from your backend using your `apiKey`:
 
 ```javascript
 // Node.js Backend Example
@@ -109,15 +135,18 @@ async function notifyUser() {
     {
       headers: {
         "Content-Type": "application/json",
-        "x-service-key": process.env.INTERNAL_SERVICE_KEY // Matches engine key
+        "x-api-key": process.env.NOTIFICATION_API_KEY // Your app's secret API key
       }
     }
   );
 }
+
 ```
 
-### Step B: Giving Your Frontend a User Token
-When a user logs into your backend, create their notification token and return it:
+---
+
+### Step 3: Giving Your Frontend a User Token
+When a user logs into your backend, sign an HMAC token with your `apiKey` and return it to the user's browser/app:
 
 ```javascript
 // Inside your App's Login Controller
@@ -126,18 +155,20 @@ import crypto from "crypto";
 export function loginUser(req, res) {
   const user = authenticate(req.body); // e.g. Bob
   
-  // Create HMAC token using the shared secret
+  // Create HMAC token using your App's API Key
   const notificationToken = crypto
-    .createHmac("sha256", process.env.INTERNAL_SERVICE_KEY)
+    .createHmac("sha256", process.env.NOTIFICATION_API_KEY)
     .update(user.id)
     .digest("hex");
 
   res.json({
     userId: user.id,
+    appId: process.env.NOTIFICATION_APP_ID, // e.g. "app_9f2b8401"
     notificationToken: notificationToken
   });
 }
 ```
+
 
 ---
 

@@ -1,30 +1,18 @@
 import crypto from "crypto";
 import type { Request, Response, NextFunction } from "express";
+import { getAppById, getAppByApiKey } from "../services/appService.js";
 
 /**
- * Generates an HMAC-SHA256 signature for a given userId using the shared service key.
- * Third-party backends can use this exact logic to generate tokens for their authenticated users.
+ * Validates whether the given userToken matches the HMAC-SHA256 of the userId
+ * using the provided secretKey. Uses timingSafeEqual to prevent timing attacks.
  */
-export function generateUserToken(userId: string, secretKey?: string): string {
-    const secret = secretKey || process.env.INTERNAL_SERVICE_KEY;
-    if (!secret) {
-        throw new Error("INTERNAL_SERVICE_KEY is not defined in environment");
-    }
-    return crypto.createHmac("sha256", secret).update(userId).digest("hex");
-}
-
-/**
- * Validates whether the given userToken matches the HMAC-SHA256 of the userId.
- * Uses timingSafeEqual to prevent timing attacks.
- */
-export function verifyUserToken(userId: string, token: string, secretKey?: string): boolean {
-    const secret = secretKey || process.env.INTERNAL_SERVICE_KEY;
-    if (!secret || !userId || !token) {
+export function verifyUserToken(userId: string, token: string, secretKey: string): boolean {
+    if (!secretKey || !userId || !token) {
         return false;
     }
 
     try {
-        const expected = crypto.createHmac("sha256", secret).update(userId).digest("hex");
+        const expected = crypto.createHmac("sha256", secretKey).update(userId).digest("hex");
         const tokenBuffer = Buffer.from(token, "hex");
         const expectedBuffer = Buffer.from(expected, "hex");
 
@@ -41,15 +29,18 @@ export function verifyUserToken(userId: string, token: string, secretKey?: strin
 /**
  * Express middleware to authenticate client requests.
  * Expects:
+ *   - 'x-app-id': (Optional if single-tenant) The unique ID of the application
  *   - 'x-user-id': The ID of the authenticated user
- *   - 'x-user-token': The HMAC-SHA256 signature of the user ID generated with the secret key
+ *   - 'x-user-token': The HMAC-SHA256 signature generated with the app's secret key
  *
- * Attaches verified userId to `req.userId`.
+ * Attaches verified userId and appId to `req.userId` and `req.appId`.
  */
-export function authenticateUser(req: Request, res: Response, next: NextFunction) {
+export async function authenticateUser(req: Request, res: Response, next: NextFunction) {
+    const appIdHeader = req.headers["x-app-id"];
     const userIdHeader = req.headers["x-user-id"];
     const userTokenHeader = req.headers["x-user-token"];
 
+    const appId = Array.isArray(appIdHeader) ? appIdHeader[0] : appIdHeader;
     const userId = Array.isArray(userIdHeader) ? userIdHeader[0] : userIdHeader;
     const token = Array.isArray(userTokenHeader) ? userTokenHeader[0] : userTokenHeader;
 
@@ -60,15 +51,40 @@ export function authenticateUser(req: Request, res: Response, next: NextFunction
         });
     }
 
-    const isValid = verifyUserToken(userId, token);
-    if (!isValid) {
-        return res.status(403).json({
-            error: "FORBIDDEN",
-            message: "Invalid 'x-user-token' for the provided 'x-user-id'. Access denied.",
+    let secretKey = process.env.INTERNAL_SERVICE_KEY || "";
+    let resolvedAppId = "default";
+
+    // If appId is provided, look up the tenant app in DB
+    if (appId) {
+        const app = await getAppById(appId);
+        if (!app) {
+            return res.status(401).json({
+                error: "INVALID_APP",
+                message: `Application with appId '${appId}' does not exist.`,
+            });
+        }
+        secretKey = app.apiKey;
+        resolvedAppId = app.appId;
+    }
+
+    if (!secretKey) {
+        return res.status(500).json({
+            error: "SERVER_CONFIG_ERROR",
+            message: "No secret key configured for authentication verification.",
         });
     }
 
-    // Attach verified user ID to request
+    const isValid = verifyUserToken(userId, token, secretKey);
+    if (!isValid) {
+        return res.status(403).json({
+            error: "FORBIDDEN",
+            message: "Invalid 'x-user-token' for the provided user and application.",
+        });
+    }
+
+    // Attach verified user and app context to request
     (req as any).userId = userId;
+    (req as any).appId = resolvedAppId;
     next();
 }
+

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface INotification extends Document {
+    appId?: string;
     eventId: string;
     source: string;
     recipientId: string;
@@ -17,6 +18,11 @@ export interface INotification extends Document {
 
 const notificationSchema = new Schema(
     {
+        appId: {
+            type: String,
+            index: true,
+            default: "default",
+        },
         eventId: {
             type: String,
             required: true,
@@ -31,6 +37,7 @@ const notificationSchema = new Schema(
             required: true,
             index: true,
         },
+
         senderId: {
             type: String,
             default: null,
