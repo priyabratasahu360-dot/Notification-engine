@@ -6,7 +6,19 @@ export const chatMessageSentHandler: EventHandler = async (event) => {
     if (!recipientId) return null;
 
     const senderName = (event.data?.senderName as string) || event.senderId || "Someone";
-    const textPreview = (event.data?.text as string) || (event.data?.message as string) || "sent you a message";
+
+    // Privacy-first sanitization:
+    // If the producer provided explicit preview text, truncate it safely to max 60 chars.
+    // If no text or privacy mode is preferred, show generic alert: "Sent you a message"
+    const rawText = (event.data?.text as string) || (event.data?.message as string);
+    const previewMessage = rawText
+        ? (rawText.length > 60 ? `${rawText.substring(0, 57)}...` : rawText)
+        : "Sent you a message";
+
+    // Strip sensitive raw message bodies from the metadata payload stored in DB
+    const sanitizedData = { ...(event.data || {}) };
+    delete sanitizedData.text;
+    delete sanitizedData.message;
 
     const intent: NotificationIntent = {
         eventId: event.eventId,
@@ -15,9 +27,9 @@ export const chatMessageSentHandler: EventHandler = async (event) => {
         type: "chat.message.created",
         source: event.source,
         title: `New message from ${senderName}`,
-        message: textPreview.length > 100 ? `${textPreview.substring(0, 97)}...` : textPreview,
-        channels: ["in_app", "email"],
-        data: event.data,
+        message: previewMessage,
+        channels: ["in_app", "push"],
+        data: sanitizedData,
     };
 
     return intent;
@@ -30,6 +42,11 @@ export const chatMentionHandler: EventHandler = async (event) => {
     const senderName = (event.data?.senderName as string) || event.senderId || "Someone";
     const channelName = (event.data?.channelName as string) || "a conversation";
 
+    // Clean sensitive raw message bodies
+    const sanitizedData = { ...(event.data || {}) };
+    delete sanitizedData.text;
+    delete sanitizedData.message;
+
     const intent: NotificationIntent = {
         eventId: event.eventId,
         recipientId,
@@ -38,19 +55,24 @@ export const chatMentionHandler: EventHandler = async (event) => {
         source: event.source,
         title: `${senderName} mentioned you`,
         message: `${senderName} mentioned you in #${channelName}`,
-        channels: ["in_app", "email"],
-        data: event.data,
+        channels: ["in_app", "push"],
+        data: sanitizedData,
     };
 
     return intent;
 };
 
-//for now the client like chatapp needs to fire multiple event to engine for each recipient in group
-//to be updated later
-export const groupChatHandler: EventHandler = async(event) => {
+export const groupChatHandler: EventHandler = async (event) => {
     const senderName = (event.data?.senderName as string) || event.senderId || "Someone";
-    const groupName = (event.data?.groupName as string) || "Your";
+    const groupName = (event.data?.groupName as string) || "group";
     const recipientId = event.recipientId || (event.data?.recipientId as string);
+
+    if (!recipientId) return null;
+
+    // Clean sensitive raw message bodies
+    const sanitizedData = { ...(event.data || {}) };
+    delete sanitizedData.text;
+    delete sanitizedData.message;
 
     const intent: NotificationIntent = {
         eventId: event.eventId,
@@ -58,11 +80,12 @@ export const groupChatHandler: EventHandler = async(event) => {
         senderId: event.senderId,
         type: "chat.group_message.created",
         source: event.source,
-        title: `You have new message in ${groupName} group`,
-        message: `New message from ${senderName}`,
-        channels: ["in_app"],
-        data:event.data
+        title: `New message in ${groupName}`,
+        message: `${senderName} sent a message in ${groupName}`,
+        channels: ["in_app", "push"],
+        data: sanitizedData,
     };
 
     return intent;
-}
+};
+

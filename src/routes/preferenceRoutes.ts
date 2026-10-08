@@ -3,10 +3,15 @@ import {
     getPreferences,
     setPreferences,
 } from "../controllers/preferenceController.js";
+import { authenticateUser } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/:userId", getPreferences);
-router.put("/:userId", setPreferences);
+// Secure all preference routes with user authentication
+router.use(authenticateUser);
+
+router.get("/", getPreferences);
+router.put("/", setPreferences);
 
 export default router;
+

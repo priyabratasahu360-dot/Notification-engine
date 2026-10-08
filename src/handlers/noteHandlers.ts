@@ -60,7 +60,7 @@ export const noteCollaboratorAddedHandler: EventHandler = async (event) => {
         source: event.source,
         title: `Added as collaborator`,
         message: `${addedBy} added you as a collaborator on "${noteTitle}".`,
-        channels: ["in_app"],
+        channels: ["in_app", "email", "push"],
         data: event.data,
     };
 
@@ -82,7 +82,7 @@ export const noteCommentHandler: EventHandler = async(event) => {
         source: event.source,
         title: `${commenteterName} commented on your note`,
         message: comment,
-        channels: ["in_app"],
+        channels: ["in_app", "push"],
         data: event.data
     }
 

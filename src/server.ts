@@ -19,12 +19,13 @@ app.use(express.json());
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-service-key");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-service-key, x-user-id, x-user-token");
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
     next();
 });
+
 
 const PORT = process.env.PORT || 5001;
 const server = createServer(app);
@@ -139,8 +140,9 @@ async function startServer() {
 
     server.listen(PORT, () => {
         console.log(`Notification Engine running on port ${PORT}`);
-        console.log(`WebSocket ready on ws://localhost:${PORT}?userId=<id>`);
+        console.log(`WebSocket ready on ws://localhost:${PORT}?userId=<id>&token=<token>`);
     });
+
 }
 
 startServer();

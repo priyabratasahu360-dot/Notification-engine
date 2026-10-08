@@ -1,18 +1,19 @@
-import {WebSocket, WebSocketServer} from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import type { Server } from "http";
+import { verifyUserToken } from "../middleware/auth.js";
 
 const clients = new Map<string, Set<WebSocket>>();
 
-export function isUserConnected(userId: string): boolean{
+export function isUserConnected(userId: string): boolean {
     const userSockets = clients.get(userId);
 
-    if(!userSockets || userSockets.size === 0){
+    if (!userSockets || userSockets.size === 0) {
         return false;
     }
 
-    //check of connection
-    for(const socket of userSockets){
-        if(socket.readyState === WebSocket.OPEN){
+    // Check open connection
+    for (const socket of userSockets) {
+        if (socket.readyState === WebSocket.OPEN) {
             return true;
         }
     }
@@ -23,10 +24,10 @@ export function isUserConnected(userId: string): boolean{
 export function sendNotification(
     userId: string,
     notification: unknown
-){
+) {
     const userSockets = clients.get(userId);
 
-    if(!userSockets || userSockets.size === 0){
+    if (!userSockets || userSockets.size === 0) {
         console.log(`User ${userId} is not connected`);
         return;
     }
@@ -35,7 +36,7 @@ export function sendNotification(
     let activeSentCount = 0;
 
     for (const socket of userSockets) {
-        if(socket.readyState === WebSocket.OPEN){
+        if (socket.readyState === WebSocket.OPEN) {
             socket.send(payload);
             activeSentCount++;
         }
@@ -46,23 +47,31 @@ export function sendNotification(
     }
 }
 
-export function createWebsocketServer(server: Server){
+export function createWebsocketServer(server: Server) {
     const wss = new WebSocketServer({
         server
     });
 
     wss.on("connection", (socket, request) => {
-        console.log("Websocket client connected");
-
         const url = new URL(
             request.url || "",
             `http://${request.headers.host}`
         );
 
-        const userId = url.searchParams.get('userId');
+        const userId = url.searchParams.get("userId");
+        const token = url.searchParams.get("token");
 
-        if(!userId){
-            socket.close();
+        // Validate user identity and token signature
+        if (!userId || !token) {
+            console.warn("[WebSocket] Rejected connection: Missing userId or token");
+            socket.close(4401, "Missing authentication credentials");
+            return;
+        }
+
+        const isValid = verifyUserToken(userId, token);
+        if (!isValid) {
+            console.warn(`[WebSocket] Rejected connection: Invalid token for userId=${userId}`);
+            socket.close(4403, "Invalid user token");
             return;
         }
 
@@ -71,7 +80,8 @@ export function createWebsocketServer(server: Server){
             clients.set(userId, new Set<WebSocket>());
         }
         clients.get(userId)!.add(socket);
-        console.log(`User connected: ${userId} (active sockets: ${clients.get(userId)!.size})`);
+        console.log(`User connected via WebSocket: ${userId} (active sockets: ${clients.get(userId)!.size})`);
+
 
         socket.on("close", () => {
             const userSockets = clients.get(userId);

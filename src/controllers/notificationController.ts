@@ -1,14 +1,12 @@
 import type { Request, Response } from "express";
 import { Notification } from "../models/Notification.js";
 
-// GET /api/notifications?userId=123&read=false
+// GET /api/notifications?read=false&limit=50
+// Uses authenticated req.userId from middleware
 export const getNotifications = async (req: Request, res: Response) => {
     try {
-        const { userId, read, limit = "50" } = req.query;
-
-        if (!userId || typeof userId !== "string") {
-            return res.status(400).json({ error: "userId query parameter is required" });
-        }
+        const userId = (req as any).userId;
+        const { read, limit = "50" } = req.query;
 
         const query: Record<string, unknown> = { recipientId: userId };
         if (typeof read === "string") {
@@ -23,6 +21,7 @@ export const getNotifications = async (req: Request, res: Response) => {
             recipientId: userId,
             read: false,
         });
+
         res.json({
             userId,
             unreadCount,
@@ -36,17 +35,21 @@ export const getNotifications = async (req: Request, res: Response) => {
 };
 
 // PATCH /api/notifications/:id/read
+// Ensures notification belongs to the authenticated user before marking as read
 export const markAsRead = async (req: Request, res: Response) => {
     try {
+        const userId = (req as any).userId;
         const { id } = req.params;
-        const notification = await Notification.findByIdAndUpdate(
-            id,
+
+        const notification = await Notification.findOneAndUpdate(
+            { _id: id as string, recipientId: userId },
             { $set: { read: true } },
-            { returnDocument: "after" }
+            { new: true }
         );
 
+
         if (!notification) {
-            return res.status(404).json({ error: "Notification not found" });
+            return res.status(404).json({ error: "Notification not found or access denied" });
         }
 
         res.json({ message: "Marked as read", notification });
@@ -57,12 +60,10 @@ export const markAsRead = async (req: Request, res: Response) => {
 };
 
 // PATCH /api/notifications/read-all
+// Marks all notifications for the authenticated user as read
 export const markAllAsRead = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.body;
-        if (!userId || typeof userId !== "string") {
-            return res.status(400).json({ error: "userId is required in body" });
-        }
+        const userId = (req as any).userId;
 
         const result = await Notification.updateMany(
             { recipientId: userId, read: false },
@@ -78,3 +79,4 @@ export const markAllAsRead = async (req: Request, res: Response) => {
         res.status(500).json({ error: "Failed to mark all as read" });
     }
 };
+

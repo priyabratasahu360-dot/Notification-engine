@@ -4,15 +4,11 @@ import {
     updateUserPreference,
 } from "../notifications/preferenceService.js";
 
-// GET /api/preferences/:userId
+// GET /api/preferences
+// Fetches preferences for the authenticated user
 export const getPreferences = async (req: Request, res: Response) => {
     try {
-        const userIdParam = req.params.userId;
-        const userId = Array.isArray(userIdParam) ? userIdParam[0] : userIdParam;
-        if (!userId) {
-            return res.status(400).json({ error: "userId parameter is required" });
-        }
-
+        const userId = (req as any).userId;
         const preferences = await getUserPreference(userId);
         res.json(preferences);
     } catch (error) {
@@ -21,16 +17,12 @@ export const getPreferences = async (req: Request, res: Response) => {
     }
 };
 
-// PUT /api/preferences/:userId
+// PUT /api/preferences
+// Updates preferences for the authenticated user
 export const setPreferences = async (req: Request, res: Response) => {
     try {
-        const userIdParam = req.params.userId;
-        const userId = Array.isArray(userIdParam) ? userIdParam[0] : userIdParam;
+        const userId = (req as any).userId;
         const updates = req.body;
-
-        if (!userId) {
-            return res.status(400).json({ error: "userId parameter is required" });
-        }
 
         const updated = await updateUserPreference(userId, updates);
         res.json({
@@ -42,3 +34,4 @@ export const setPreferences = async (req: Request, res: Response) => {
         res.status(500).json({ error: "Failed to update user preferences" });
     }
 };
+
